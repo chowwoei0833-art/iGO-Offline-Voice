@@ -23,7 +23,9 @@ import java.util.Map;
 public class IgoVoskRecognitionService extends RecognitionService implements RecognitionListener {
 
     private static final String TAG = "IgoVoskService";
-    private static final String MODEL_PATH = "/sdcard/vosk-model-small-cn-0.22";
+    private String getModelPath() {
+    return new File(getFilesDir(), "vosk-model-small-cn-0.22").getAbsolutePath();
+    }
 
     private Callback callback;
     private Model model;
@@ -35,7 +37,7 @@ public class IgoVoskRecognitionService extends RecognitionService implements Rec
         this.callback = callback;
 
         try {
-            File modelDir = new File(MODEL_PATH);
+            File modelDir = new File(getModelPath());
 
             if (!modelDir.exists()) {
                 callback.error(SpeechRecognizer.ERROR_CLIENT);
@@ -43,7 +45,7 @@ public class IgoVoskRecognitionService extends RecognitionService implements Rec
             }
 
             if (model == null) {
-                model = new Model(MODEL_PATH);
+               model = new Model(getModelPath());
             }
 
             if (recognizer == null) {
