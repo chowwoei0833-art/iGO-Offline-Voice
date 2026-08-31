@@ -1,6 +1,7 @@
 package com.carsocx.igovosk;
 
 import android.content.Intent;
+import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.speech.RecognitionService;
@@ -16,6 +17,9 @@ import org.vosk.android.RecognitionListener;
 import org.vosk.android.SpeechService;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Map;
@@ -25,6 +29,32 @@ public class IgoVoskRecognitionService extends RecognitionService implements Rec
     private static final String TAG = "IgoVoskService";
     private String getModelPath() {
     return new File(getFilesDir(), "vosk-model-small-cn-0.22").getAbsolutePath();
+    }
+
+    private boolean modelReady(File d) {
+        return d.isDirectory()
+                && new File(d, "am/final.mdl").isFile()
+                && new File(d, "conf/model.conf").isFile()
+                && new File(d, "graph/HCLr.fst").isFile();
+    }
+
+    private void copyAssetTree(String assetPath, File out) throws IOException {
+        AssetManager am = getAssets();
+        String[] children = am.list(assetPath);
+        if (children != null && children.length > 0) {
+            if (!out.exists() && !out.mkdirs()) throw new IOException("mkdir failed: " + out);
+            for (String child : children) {
+                copyAssetTree(assetPath + "/" + child, new File(out, child));
+            }
+            return;
+        }
+        File parent = out.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) throw new IOException("mkdir failed: " + parent);
+        try (InputStream in = am.open(assetPath); FileOutputStream fos = new FileOutputStream(out)) {
+            byte[] buf = new byte[32768];
+            int n;
+            while ((n = in.read(buf)) > 0) fos.write(buf, 0, n);
+        }
     }
 
     private Callback callback;
@@ -39,7 +69,10 @@ public class IgoVoskRecognitionService extends RecognitionService implements Rec
         try {
             File modelDir = new File(getModelPath());
 
-            if (!modelDir.exists()) {
+            if (!modelReady(modelDir)) {
+                copyAssetTree("vosk-model-small-cn-0.22", modelDir);
+            }
+            if (!modelReady(modelDir)) {
                 callback.error(SpeechRecognizer.ERROR_CLIENT);
                 return;
             }
